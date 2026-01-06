@@ -299,8 +299,7 @@ if (!supabase) {
           </h1>
 
           <p className="max-w-2xl text-pretty text-base text-white/75 md:text-lg">
-  May your work be filled with calm power, steady hands, and gratitude.
-</p>
+  May your work be filled with calm power, steady hands, and gratitude.</p>
 
           <div className="flex items-center gap-2 text-sm text-white/60">
             <Stethoscope className="h-4 w-4" />
