@@ -8,16 +8,8 @@ type Gratitude = { text: string; at: string };
 
 const DEFAULT_QUOTES = [
   {
-    text: "Joy doesn’t wait for the storm to pass — it learns to dance in the rain.",
-    by: "Unknown",
-  },
-  {
-    text: "Hardship can break you open in the best way — making room for courage, compassion, and light.",
-    by: "Unknown",
-  },
-  {
-    text: "Even on the hardest days, a small grateful thought can be a lantern.",
-    by: "Unknown",
+     text: "Even when the days are hard, you bring calm into chaos.",
+    by: "Fida",
   },
 ];
 
@@ -209,7 +201,7 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950 text-slate-100">
       <div className="pointer-events-none absolute inset-0 opacity-[0.25]">
         <div className="absolute left-10 top-14 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute right-10 top-64 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
@@ -238,8 +230,13 @@ export default function Page() {
           </div>
 
           <h1 className="text-balance text-4xl font-semibold tracking-tight md:text-6xl">
-            A small reminder: joy can grow even in the toughest shifts.
+            Joy can grow even in the toughest shifts.
           </h1>
+<img
+  src="/blend.jpg"
+  alt="Blend"
+  className="mt-6 h-40 w-40 rounded-full object-cover border border-white/20 shadow-lg"
+/>
 
           <p className="max-w-2xl text-pretty text-base text-white/75 md:text-lg">
             For a doctor who shows up when life is at its messiest — may your new year be filled with calm moments,
