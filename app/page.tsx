@@ -1,14 +1,11 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Heart, Stethoscope, Sparkles } from "lucide-react";
+import { Heart, Stethoscope, Sparkles, Music } from "lucide-react";
+import { supabase } from "../lib/supabaseClient";
 
-type Gratitude = { text: string; at: string };
-
-// deploy-check: 1
-
-// --- Quotes (10 total, mixed languages) ---
+// ---------- Quotes (random multilingual) ----------
 const DEFAULT_QUOTES = [
   {
     text: "When we are no longer able to change a situation, we are challenged to change ourselves.",
@@ -52,51 +49,30 @@ const DEFAULT_QUOTES = [
   },
 ];
 
-// Helper: detect Arabic text for proper RTL display
 const isArabic = (s: string) => /[\u0600-\u06FF]/.test(s);
 
-// --- Inside your Page() component: replace your quote state + logic with this ---
-
-// Random first quote on page load
-const [quoteIndex, setQuoteIndex] = useState(() =>
-  Math.floor(Math.random() * DEFAULT_QUOTES.length)
-);
-
-// Quote shown on screen
-const quote = useMemo(() => {
-  return DEFAULT_QUOTES[quoteIndex % DEFAULT_QUOTES.length];
-}, [quoteIndex]);
-
-// Randomize quote when Blend clicks "New quote" (no repeat twice in a row)
-const cycleQuote = () => {
-  setQuoteIndex((current) => {
-    if (DEFAULT_QUOTES.length <= 1) return current;
-
-    let next = current;
-    while (next === current) {
-      next = Math.floor(Math.random() * DEFAULT_QUOTES.length);
-    }
-    return next;
-  });
-};
-
-
-function useTodayLocal() {
-  return useMemo(() => {
-    const d = new Date();
-    return d.toLocaleDateString(undefined, {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }, []);
-}
-
+// ---------- Helpers ----------
 function isBlendBirthday(d = new Date()) {
   return d.getMonth() === 0 && d.getDate() === 7; // Jan 7
 }
 
+function formatToday() {
+  const d = new Date();
+  return d.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+type GratitudeRow = {
+  id: number;
+  text: string;
+  created_at: string;
+};
+
+// ---------- Egg / Chick visual ----------
 function EggChick({ stage }: { stage: "egg" | "cracked" | "chick" }) {
   const isEgg = stage === "egg";
   const isCracked = stage === "cracked";
@@ -197,40 +173,61 @@ function EggChick({ stage }: { stage: "egg" | "cracked" | "chick" }) {
   );
 }
 
+// ---------- Main Page ----------
 export default function Page() {
-  const today = useTodayLocal();
+  const today = useMemo(() => formatToday(), []);
   const birthday = useMemo(() => isBlendBirthday(new Date()), []);
-  const [quoteIndex, setQuoteIndex] = useState(0);
 
+  // Random first quote
+  const [quoteIndex, setQuoteIndex] = useState(() =>
+    Math.floor(Math.random() * DEFAULT_QUOTES.length)
+  );
 
-  const quote = useMemo(() => {
-    const base = DEFAULT_QUOTES[quoteIndex % DEFAULT_QUOTES.length];
-    const text = customQuote.trim() || base.text;
-    const by = (customBy.trim() || base.by).trim();
-    return { text, by };
-  }, [quoteIndex, customQuote, customBy]);
+  const quote = useMemo(() => DEFAULT_QUOTES[quoteIndex], [quoteIndex]);
 
+  // Random new quote (no immediate repeat)
+  const newQuote = () => {
+    setQuoteIndex((current) => {
+      if (DEFAULT_QUOTES.length <= 1) return current;
+      let next = current;
+      while (next === current) {
+        next = Math.floor(Math.random() * DEFAULT_QUOTES.length);
+      }
+      return next;
+    });
+  };
+
+  // Egg state
   const [stage, setStage] = useState<"egg" | "cracked" | "chick">("egg");
   const [gratitude, setGratitude] = useState("");
-  const [gratitudes, setGratitudes] = useState<Gratitude[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const cycleQuote = () => setQuoteIndex((i) => i + 1);
+  // Supabase logs shared globally
+  const [gratitudes, setGratitudes] = useState<GratitudeRow[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
 
+  // Load logs for everyone
+  useEffect(() => {
+    const loadLogs = async () => {
+      setLoadingLogs(true);
+      const { data, error } = await supabase
+        .from("gratitude_log")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (!error) setGratitudes((data as GratitudeRow[]) ?? []);
+      setLoadingLogs(false);
+    };
+
+    loadLogs();
+  }, []);
 
   const crackEgg = () => {
     if (stage === "egg") {
       setStage("cracked");
-      setTimeout(() => inputRef.current?.focus?.(), 150);
+      setTimeout(() => inputRef.current?.focus?.(), 200);
     }
-  };
-
-  const hatchChick = () => {
-    const trimmed = gratitude.trim();
-    if (!trimmed) return;
-    setGratitudes((g) => [{ text: trimmed, at: new Date().toISOString() }, ...g]);
-    setGratitude("");
-    setStage("chick");
   };
 
   const resetEgg = () => {
@@ -238,14 +235,39 @@ export default function Page() {
     setGratitude("");
   };
 
+  const hatchChick = async () => {
+    const trimmed = gratitude.trim();
+    if (!trimmed) return;
+
+    // Insert into Supabase
+    const { error } = await supabase.from("gratitude_log").insert([{ text: trimmed }]);
+
+    if (error) {
+      alert("Could not save your gratitude. Please try again.");
+      return;
+    }
+
+    // Refresh logs
+    const { data } = await supabase
+      .from("gratitude_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    setGratitudes((data as GratitudeRow[]) ?? []);
+    setGratitude("");
+    setStage("chick");
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950 text-slate-100">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
       <div className="pointer-events-none absolute inset-0 opacity-[0.25]">
         <div className="absolute left-10 top-14 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute right-10 top-64 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
       </div>
 
       <main className="relative mx-auto max-w-5xl px-6 py-14 md:py-20">
+        {/* Top Header */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -270,61 +292,83 @@ export default function Page() {
           <h1 className="text-balance text-4xl font-semibold tracking-tight md:text-6xl">
             Joy can grow even in the toughest shifts.
           </h1>
-<img
-  src="/blend.jpg"
-  alt="Blend"
-  className="mt-6 h-40 w-40 rounded-full object-cover border border-white/20 shadow-lg"
-/>
 
           <p className="max-w-2xl text-pretty text-base text-white/75 md:text-lg">
-            May your work be filled with calm power,
-            steady hands, and bright little hatchlings of gratitude.
+            For a doctor who shows up when life is at its messiest — may your new year be filled with calm moments,
+            steady hands, and bright hatchlings of gratitude.
           </p>
 
           <div className="flex items-center gap-2 text-sm text-white/60">
             <Stethoscope className="h-4 w-4" />
             <span>Today: {today}</span>
           </div>
+
+          {/* Optional photo (put blend.jpg in /public) */}
+          <div className="mt-6 flex items-center gap-4">
+            <img
+              src="/blend.jpg"
+              alt="Blend"
+              className="h-20 w-20 rounded-full object-cover border border-white/20 shadow-lg"
+            />
+            <div className="text-sm text-white/65">
+              <p className="font-medium text-white/80">Blend</p>
+              <p>Emergency medical doctor</p>
+            </div>
+          </div>
         </motion.div>
 
+        {/* Main Grid */}
         <div className="mt-10 grid gap-6 md:mt-14 md:grid-cols-2">
+          {/* Left Panel: Quote + Egg input */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-6 md:p-8">
             <div className="flex items-start justify-between gap-4">
               <div className="w-full">
-
                 <motion.blockquote
-  key={quoteIndex}
-  initial={{ opacity: 0, y: 6 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.35 }}
-  className="mt-3 text-pretty text-xl leading-relaxed md:text-2xl"
-  dir={isArabic(quote.text) ? "rtl" : "ltr"}
->
-  “{quote.text}”
-</motion.blockquote>
-
+                  key={quoteIndex}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35 }}
+                  className="mt-2 text-pretty text-xl leading-relaxed md:text-2xl"
+                  dir={isArabic(quote.text) ? "rtl" : "ltr"}
+                >
+                  “{quote.text}”
+                </motion.blockquote>
 
                 <p className="mt-3 text-sm text-white/60">— {quote.by}</p>
-
-                               </div>
               </div>
 
               <button
-                onClick={cycleQuote}
+                onClick={newQuote}
                 className="shrink-0 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/15"
               >
                 New quote
               </button>
             </div>
 
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5">
+            {/* Music (optional) */}
+            <div className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-2 text-white/80">
+                <Music className="h-4 w-4" />
+                <p className="text-sm font-medium">Music</p>
+              </div>
+              <p className="mt-2 text-xs text-white/60">
+                Put your music file in <span className="font-medium text-white/70">/public/music.mp3</span>
+              </p>
+
+              <audio controls className="mt-3 w-full">
+                <source src="/music.mp3" type="audio/mpeg" />
+              </audio>
+            </div>
+
+            {/* Egg interaction */}
+            <div className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-center gap-2 text-white/85">
                 <Heart className="h-4 w-4" />
-                <p className="text-sm font-medium">Tiny practice for hard days</p>
+                <p className="text-sm font-medium">Crack an egg, write gratitude</p>
               </div>
 
               <p className="mt-2 text-sm text-white/70">
-                Crack the egg, write one thing you’re grateful for, and watch it turn into a little chicken.
+                Crack the egg, write something you’re grateful for, and watch it hatch.
               </p>
 
               <div className="mt-5 flex flex-col gap-3">
@@ -395,7 +439,6 @@ export default function Page() {
                       className="mt-2 rounded-2xl border border-white/10 bg-white/5 p-4"
                     >
                       <p className="text-sm text-white/75">Your gratitude hatched a chick. 🐣</p>
-                      <p className="mt-1 text-sm text-white">“{gratitudes?.[0]?.text ?? ""}”</p>
 
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
@@ -412,6 +455,7 @@ export default function Page() {
             </div>
           </div>
 
+          {/* Right Panel: Egg visual + history */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-6 md:p-8">
             <div className="flex items-center justify-between">
               <div>
@@ -435,26 +479,25 @@ export default function Page() {
             </motion.button>
 
             <div className="mt-8">
-              <p className="text-sm font-medium text-white/70">Gratitude hatchlings</p>
+              <p className="text-sm font-medium text-white/70">Gratitude history</p>
               <p className="mt-1 text-sm text-white/60">
-                Each egg becomes a small reminder that good things still exist.
+                Saved for everyone — so joy can be shared.
               </p>
 
               <div className="mt-4 space-y-2">
-                <AnimatePresence>
-                  {gratitudes.length === 0 ? (
-                    <motion.div
-                      key="empty"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-4 text-sm text-white/60"
-                    >
-                      No hatchlings yet — crack your first egg. 🥚
-                    </motion.div>
-                  ) : (
-                    gratitudes.slice(0, 6).map((g) => (
+                {loadingLogs ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+                    Loading gratitude history…
+                  </div>
+                ) : gratitudes.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-4 text-sm text-white/60">
+                    No hatchlings yet — crack your first egg. 🥚
+                  </div>
+                ) : (
+                  <AnimatePresence>
+                    {gratitudes.slice(0, 12).map((g) => (
                       <motion.div
-                        key={g.at}
+                        key={g.id}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
@@ -463,19 +506,22 @@ export default function Page() {
                       >
                         <p className="text-sm text-white">{g.text}</p>
                         <p className="mt-1 text-xs text-white/55">
-                          {new Date(g.at).toLocaleTimeString(undefined, {
+                          {new Date(g.created_at).toLocaleString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "2-digit",
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </p>
                       </motion.div>
-                    ))
-                  )}
-                </AnimatePresence>
+                    ))}
+                  </AnimatePresence>
+                )}
               </div>
 
-              {gratitudes.length > 6 && (
-                <p className="mt-3 text-xs text-white/50">Showing the latest 6 hatchlings.</p>
+              {gratitudes.length > 12 && (
+                <p className="mt-3 text-xs text-white/50">Showing the latest 12 entries.</p>
               )}
             </div>
           </div>
@@ -483,8 +529,7 @@ export default function Page() {
 
         <footer className="mt-12 border-t border-white/10 pt-8 text-sm text-white/55">
           <p>
-            Made with care for <span className="font-medium text-white/75">Blend</span> — thank you for the lives you
-            help save.
+            Made with care for <span className="font-medium text-white/75">Blend</span> — thank you for the lives you help save.
           </p>
         </footer>
       </main>
