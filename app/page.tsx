@@ -9,7 +9,7 @@ type Gratitude = { text: string; at: string };
 const DEFAULT_QUOTES = [
   {
      text: "Even when the days are hard, you bring calm into chaos.",
-    by: "Fida",
+    by: "  ",
   },
 ];
 
@@ -239,7 +239,7 @@ export default function Page() {
 />
 
           <p className="max-w-2xl text-pretty text-base text-white/75 md:text-lg">
-            For a doctor who shows up when life is at its messiest — may your new year be filled with calm moments,
+            May your work be filled with calm power,
             steady hands, and bright little hatchlings of gratitude.
           </p>
 
@@ -253,7 +253,6 @@ export default function Page() {
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-6 md:p-8">
             <div className="flex items-start justify-between gap-4">
               <div className="w-full">
-                <p className="text-sm font-medium text-white/70">Wholesome quote</p>
 
                 <motion.blockquote
                   key={quoteIndex + (customQuote.trim() ? 1000 : 0)}
@@ -481,9 +480,6 @@ export default function Page() {
           <p>
             Made with care for <span className="font-medium text-white/75">Blend</span> — thank you for the lives you
             help save.
-          </p>
-          <p className="mt-2 text-xs text-white/45">
-            Hint: Replace the quote with a personal memory to make this even sweeter.
           </p>
         </footer>
       </main>
