@@ -238,26 +238,31 @@ export default function Page() {
   const hatchChick = async () => {
     const trimmed = gratitude.trim();
     if (!trimmed) return;
+if (!supabase) {
+  alert("Database is not connected yet. Please try again later.");
+  return;
+}
+    // 1) Insert into Supabase
+  const { error } = await supabase
+    .from("gratitude_log")
+    .insert([{ text: trimmed }]);
 
-    // Insert into Supabase
-    const { error } = await supabase.from("gratitude_log").insert([{ text: trimmed }]);
+  if (error) {
+    alert("Could not save your gratitude. Please try again.");
+    return;
+  }
 
-    if (error) {
-      alert("Could not save your gratitude. Please try again.");
-      return;
-    }
+  // 2) Reload latest logs
+  const { data } = await supabase
+    .from("gratitude_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
-    // Refresh logs
-    const { data } = await supabase
-      .from("gratitude_log")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    setGratitudes((data as GratitudeRow[]) ?? []);
-    setGratitude("");
-    setStage("chick");
-  };
+  setGratitudes((data as GratitudeRow[]) ?? []);
+  setGratitude("");
+  setStage("chick");
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
@@ -294,9 +299,8 @@ export default function Page() {
           </h1>
 
           <p className="max-w-2xl text-pretty text-base text-white/75 md:text-lg">
-            For a doctor who shows up when life is at its messiest — may your new year be filled with calm moments,
-            steady hands, and bright hatchlings of gratitude.
-          </p>
+  May your work be filled with calm power, steady hands, and gratitude.
+</p>
 
           <div className="flex items-center gap-2 text-sm text-white/60">
             <Stethoscope className="h-4 w-4" />
@@ -311,9 +315,8 @@ export default function Page() {
               className="h-20 w-20 rounded-full object-cover border border-white/20 shadow-lg"
             />
             <div className="text-sm text-white/65">
-              <p className="font-medium text-white/80">Blend</p>
-              <p>Emergency medical doctor</p>
-            </div>
+  <p className="font-medium text-white/80">Blend</p>
+</div>
           </div>
         </motion.div>
 
