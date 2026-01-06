@@ -6,6 +6,8 @@ import { Heart, Stethoscope, Sparkles } from "lucide-react";
 
 type Gratitude = { text: string; at: string };
 
+// deploy-check: 1
+
 // --- Quotes (10 total, mixed languages) ---
 const DEFAULT_QUOTES = [
   {
