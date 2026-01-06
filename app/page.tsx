@@ -6,12 +6,78 @@ import { Heart, Stethoscope, Sparkles } from "lucide-react";
 
 type Gratitude = { text: string; at: string };
 
+// --- Quotes (10 total, mixed languages) ---
 const DEFAULT_QUOTES = [
   {
-     text: "Even when the days are hard, you bring calm into chaos.",
-    by: "  ",
+    text: "When we are no longer able to change a situation, we are challenged to change ourselves.",
+    by: "Viktor E. Frankl",
+  },
+  {
+    text: "إِنَّ مَعَ العُسْرِ يُسْرًا.",
+    by: "علي بن أبي طالب",
+  },
+  {
+    text: "Allt stort som skedde i världen skedde först i någon människas fantasi.",
+    by: "Astrid Lindgren",
+  },
+  {
+    text: "In the middle of difficulty lies opportunity.",
+    by: "Albert Einstein",
+  },
+  {
+    text: "كلُّ ما في الحياةِ عظيمٌ يبدأُ صغيرًا.",
+    by: "جبران خليل جبران",
+  },
+  {
+    text: "Vägen till helighet går genom vardagen.",
+    by: "Dag Hammarskjöld",
+  },
+  {
+    text: "The wound is the place where the Light enters you.",
+    by: "Jalal al-Din Rumi",
+  },
+  {
+    text: "إنَّ اللهَ إذا أحبَّ عبدًا ابتلاه.",
+    by: "الحسن البصري",
+  },
+  {
+    text: "Att leva är att förändras.",
+    by: "Selma Lagerlöf",
+  },
+  {
+    text: "Nothing in life is to be feared, it is only to be understood.",
+    by: "Marie Curie",
   },
 ];
+
+// Helper: detect Arabic text for proper RTL display
+const isArabic = (s: string) => /[\u0600-\u06FF]/.test(s);
+
+// --- Inside your Page() component: replace your quote state + logic with this ---
+
+// Random first quote on page load
+const [quoteIndex, setQuoteIndex] = useState(() =>
+  Math.floor(Math.random() * DEFAULT_QUOTES.length)
+);
+
+// Quote shown on screen
+const quote = useMemo(() => {
+  return DEFAULT_QUOTES[quoteIndex % DEFAULT_QUOTES.length];
+}, [quoteIndex]);
+
+// Randomize quote when Blend clicks "New quote" (no repeat twice in a row)
+const cycleQuote = () => {
+  setQuoteIndex((current) => {
+    if (DEFAULT_QUOTES.length <= 1) return current;
+
+    let next = current;
+    while (next === current) {
+      next = Math.floor(Math.random() * DEFAULT_QUOTES.length);
+    }
+    return next;
+  });
+};
+
 
 function useTodayLocal() {
   return useMemo(() => {
@@ -134,21 +200,6 @@ export default function Page() {
   const birthday = useMemo(() => isBlendBirthday(new Date()), []);
   const [quoteIndex, setQuoteIndex] = useState(0);
 
-  const [customQuote, setCustomQuote] = useState(() => {
-    try {
-      return localStorage.getItem("blend_custom_quote") ?? "";
-    } catch {
-      return "";
-    }
-  });
-
-  const [customBy, setCustomBy] = useState(() => {
-    try {
-      return localStorage.getItem("blend_custom_quote_by") ?? "";
-    } catch {
-      return "";
-    }
-  });
 
   const quote = useMemo(() => {
     const base = DEFAULT_QUOTES[quoteIndex % DEFAULT_QUOTES.length];
@@ -164,21 +215,6 @@ export default function Page() {
 
   const cycleQuote = () => setQuoteIndex((i) => i + 1);
 
-  const saveCustomQuote = () => {
-    try {
-      localStorage.setItem("blend_custom_quote", customQuote);
-      localStorage.setItem("blend_custom_quote_by", customBy);
-    } catch {}
-  };
-
-  const resetCustomQuote = () => {
-    setCustomQuote("");
-    setCustomBy("");
-    try {
-      localStorage.removeItem("blend_custom_quote");
-      localStorage.removeItem("blend_custom_quote_by");
-    } catch {}
-  };
 
   const crackEgg = () => {
     if (stage === "egg") {
@@ -255,53 +291,20 @@ export default function Page() {
               <div className="w-full">
 
                 <motion.blockquote
-                  key={quoteIndex + (customQuote.trim() ? 1000 : 0)}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35 }}
-                  className="mt-3 text-pretty text-xl leading-relaxed md:text-2xl"
-                >
-                  “{quote.text}”
-                </motion.blockquote>
+  key={quoteIndex}
+  initial={{ opacity: 0, y: 6 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.35 }}
+  className="mt-3 text-pretty text-xl leading-relaxed md:text-2xl"
+  dir={isArabic(quote.text) ? "rtl" : "ltr"}
+>
+  “{quote.text}”
+</motion.blockquote>
+
 
                 <p className="mt-3 text-sm text-white/60">— {quote.by}</p>
 
-                <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs font-medium text-white/70">Edit the quote (optional)</p>
-                  <p className="mt-1 text-xs text-white/55">
-                    This saves in the browser so Blend keeps seeing your custom quote.
-                  </p>
-
-                  <div className="mt-3 grid gap-2">
-                    <input
-                      value={customQuote}
-                      onChange={(e) => setCustomQuote(e.target.value)}
-                      placeholder="Type your inspiring quote here…"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/35 outline-none focus:ring-2 focus:ring-white/20"
-                    />
-                    <input
-                      value={customBy}
-                      onChange={(e) => setCustomBy(e.target.value)}
-                      placeholder="Quote author (e.g., You, Rumi, Unknown)…"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/35 outline-none focus:ring-2 focus:ring-white/20"
-                    />
-
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <button
-                        onClick={saveCustomQuote}
-                        className="rounded-full bg-white text-slate-950 px-4 py-2 text-sm font-medium hover:bg-white/90"
-                      >
-                        Save quote
-                      </button>
-                      <button
-                        onClick={resetCustomQuote}
-                        className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/15"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                               </div>
               </div>
 
               <button
